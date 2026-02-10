@@ -1,0 +1,94 @@
+import Link from "next/link";
+import { CalendarDays } from "lucide-react";
+import { Task } from "@/lib/types";
+import { PriorityBadge } from "@/components/shared/PriorityBadge";
+import { AvatarChip, UnassignedChip } from "@/components/shared/AvatarChip";
+import { EPICS } from "@/lib/mock";
+
+interface TaskCardProps {
+  task: Task;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+  canEdit: boolean;
+}
+
+export function TaskCard({ task, onMoveLeft, onMoveRight, canMoveLeft, canMoveRight, canEdit }: TaskCardProps) {
+  const epic = EPICS.find((e) => e.id === task.epicId);
+  const isOverdue = new Date(task.dueDate) < new Date("2026-02-10");
+
+  return (
+    <div className="group rounded-lg border border-border bg-white p-3 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
+      {/* Epic tag */}
+      {epic && (
+        <span className="inline-block mb-2 text-xs text-indigo-600 bg-indigo-50 rounded px-1.5 py-0.5 truncate max-w-full">
+          {epic.title}
+        </span>
+      )}
+
+      {/* Title — clickable */}
+      <Link href={`/task/${task.id}`}>
+        <p className="text-sm font-medium text-foreground mb-2 leading-snug group-hover:text-indigo-700 transition-colors cursor-pointer">
+          {task.title}
+        </p>
+      </Link>
+
+      {/* Priority + due */}
+      <div className="flex items-center justify-between mb-3">
+        <PriorityBadge priority={task.priority} />
+        {task.dueDate && (
+          <span
+            className={`flex items-center gap-1 text-xs ${
+              isOverdue ? "text-red-500" : "text-muted-foreground"
+            }`}
+          >
+            <CalendarDays className="h-3 w-3" />
+            {task.dueDate}
+          </span>
+        )}
+      </div>
+
+      {/* Assignee + subtask count */}
+      <div className="flex items-center justify-between">
+        {task.assignee ? (
+          <AvatarChip user={task.assignee} size="sm" showName />
+        ) : (
+          <span className="flex items-center gap-1.5 text-xs text-red-500">
+            <UnassignedChip size="sm" />
+            Unassigned
+          </span>
+        )}
+        {task.subtasks.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {task.subtasks.filter((s) => s.done).length}/{task.subtasks.length}
+          </span>
+        )}
+      </div>
+
+      {/* Move buttons — hidden for read-only roles */}
+      {canEdit ? (
+        <div className="flex gap-1 mt-3 pt-2 border-t border-border">
+          <button
+            onClick={onMoveLeft}
+            disabled={!canMoveLeft}
+            className="flex-1 rounded text-xs py-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            ← Move left
+          </button>
+          <button
+            onClick={onMoveRight}
+            disabled={!canMoveRight}
+            className="flex-1 rounded text-xs py-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            Move right →
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3 pt-2 border-t border-border">
+          <p className="text-center text-xs text-muted-foreground/60">Read-only</p>
+        </div>
+      )}
+    </div>
+  );
+}
