@@ -21,6 +21,21 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/page.js"
     ],
+    "/utilization/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/utilization/page.js"
+    ],
+    "/my-work/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/my-work/page.js"
+    ],
+    "/board/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/board/page.js"
+    ],
     "/projects/[projectId]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -35,6 +50,11 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/task/[taskId]/page.js"
+    ],
+    "/workspace/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/workspace/page.js"
     ]
   }
 }

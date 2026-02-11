@@ -47,7 +47,7 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
         <div className="rounded-lg border border-border bg-white p-3">
           <p className="text-xs text-muted-foreground mb-1">Progress</p>
           <div className="flex items-center gap-2">
-            <ProgressBar value={progress} size="sm" />
+            <ProgressBar value={progress} size="sm" showLabel={false} />
             <span className="text-sm font-semibold text-foreground">
               {progress}%
             </span>

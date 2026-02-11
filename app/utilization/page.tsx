@@ -32,11 +32,11 @@ export default function UtilizationPage() {
         <div className="space-y-4 max-w-xl">
           {utilization.map(({ user, totalEstimate, pct, openTasks }) => {
             const barColor =
-              pct > 100 ? "bg-red-500" : pct >= 50 ? "bg-green-500" : "bg-amber-400";
+              pct > 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-400" : "bg-green-500";
             const label =
-              pct > 100 ? "Over capacity" : pct < 50 ? "Under capacity" : "On track";
+              pct > 100 ? "Over capacity" : pct >= 80 ? "Near capacity" : "Available";
             const labelColor =
-              pct > 100 ? "text-red-600" : pct < 50 ? "text-amber-600" : "text-green-600";
+              pct > 100 ? "text-red-600" : pct >= 80 ? "text-amber-600" : "text-green-600";
 
             return (
               <div key={user.id} className="rounded-lg border border-border bg-white p-4">
