@@ -1,0 +1,96 @@
+"use client";
+
+import { EpicCard } from "@/components/dashboard/EpicCard";
+import { EpicFormDialog } from "@/components/epic/EpicFormDialog";
+import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDataStore } from "@/contexts/DataStore";
+import { canManageEpics, canViewEpic } from "@/lib/permissions";
+import { Folder, Plus } from "lucide-react";
+import { useState } from "react";
+
+export default function EpicsPage() {
+  const { epics } = useDataStore();
+  const { currentUser } = useAuth();
+  const [showNewEpic, setShowNewEpic] = useState(false);
+
+  // Filter epics based on permissions (Members/Viewers see only assigned epics)
+  const visibleEpics = epics.filter((e) => canViewEpic(currentUser, e.id));
+
+  // Epic creation is Admin-only (workspace-level management)
+  const allowNewEpic = canManageEpics(currentUser);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Top bar */}
+      <div className="border-b border-border bg-white px-6 py-4">
+        <Breadcrumbs items={[{ label: "Epics" }]} />
+      </div>
+
+      <div className="flex-1 px-6 py-6 space-y-6">
+        {/* Page heading */}
+        <div className="flex items-center gap-3">
+          <Folder className="h-6 w-6 text-indigo-600" />
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Epics</h1>
+            <p className="text-sm text-muted-foreground">
+              Browse and manage all epics
+            </p>
+          </div>
+        </div>
+
+        {/* Epics section */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+              All Epics — {visibleEpics.length}
+            </h2>
+            <div className="flex items-center gap-3">
+              <div className="flex gap-2">
+                {(
+                  ["Not Started", "In Progress", "On Hold", "Done"] as const
+                ).map((s) => {
+                  const count = visibleEpics.filter(
+                    (e) => e.status === s,
+                  ).length;
+                  if (count === 0) return null;
+                  return <StatusBadge key={s} status={s} />;
+                })}
+              </div>
+              {allowNewEpic && (
+                <button
+                  onClick={() => setShowNewEpic(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Epic
+                </button>
+              )}
+            </div>
+          </div>
+
+          {visibleEpics.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border py-16 text-center">
+              <p className="text-sm text-muted-foreground">
+                No epics available.
+                {allowNewEpic && " Create one to get started."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleEpics.map((epic) => (
+                <EpicCard key={epic.id} epic={epic} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <EpicFormDialog
+        open={showNewEpic}
+        onClose={() => setShowNewEpic(false)}
+      />
+    </div>
+  );
+}

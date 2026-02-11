@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   BarChart2,
   CheckSquare,
+  Folder,
   FolderKanban,
   Kanban,
   LayoutDashboard,
@@ -24,6 +25,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/epics", label: "Epics", icon: Folder },
   { href: "/board", label: "Board", icon: Kanban },
   { href: "/my-work", label: "My Work", icon: CheckSquare },
   {

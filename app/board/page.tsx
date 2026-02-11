@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { TASKS, PROJECT } from "@/lib/mock";
-import { Task, TaskStatus } from "@/lib/types";
-import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { KanbanColumn } from "@/components/board/KanbanColumn";
-import { Kanban } from "lucide-react";
+import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDataStore } from "@/contexts/DataStore";
 import { canWrite } from "@/lib/permissions";
+import { Task, TaskStatus } from "@/lib/types";
+import { Kanban } from "lucide-react";
+import { useState } from "react";
 
 const COLUMNS: TaskStatus[] = ["To Do", "In Progress", "Review", "Done"];
 
 export default function BoardPage() {
-  const [tasks, setTasks] = useState<Task[]>(TASKS);
+  const { tasks: initialTasks } = useDataStore();
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const { currentUser } = useAuth();
   const editable = canWrite(currentUser);
 
@@ -24,7 +25,7 @@ export default function BoardPage() {
         const nextIdx = direction === "left" ? idx - 1 : idx + 1;
         if (nextIdx < 0 || nextIdx >= COLUMNS.length) return t;
         return { ...t, status: COLUMNS[nextIdx] };
-      })
+      }),
     );
   }
 
@@ -34,7 +35,7 @@ export default function BoardPage() {
       <div className="border-b border-border bg-white px-6 py-4">
         <Breadcrumbs
           items={[
-            { label: PROJECT.name, href: "/dashboard" },
+            { label: "Dashboard", href: "/dashboard" },
             { label: "Board" },
           ]}
         />
@@ -44,7 +45,9 @@ export default function BoardPage() {
         <div className="flex items-center gap-2 mb-5">
           <Kanban className="h-5 w-5 text-indigo-600" />
           <h1 className="text-lg font-bold text-foreground">Task Board</h1>
-          <span className="text-sm text-muted-foreground">— {tasks.length} tasks</span>
+          <span className="text-sm text-muted-foreground">
+            — {tasks.length} tasks
+          </span>
         </div>
 
         {/* Kanban grid */}

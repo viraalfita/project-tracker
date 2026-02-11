@@ -1,9 +1,9 @@
-import Link from "next/link";
-import { CalendarDays } from "lucide-react";
-import { Task } from "@/lib/types";
-import { PriorityBadge } from "@/components/shared/PriorityBadge";
 import { AvatarChip, UnassignedChip } from "@/components/shared/AvatarChip";
+import { PriorityBadge } from "@/components/shared/PriorityBadge";
 import { EPICS } from "@/lib/mock";
+import { Task } from "@/lib/types";
+import { CalendarDays } from "lucide-react";
+import Link from "next/link";
 
 interface TaskCardProps {
   task: Task;
@@ -14,9 +14,26 @@ interface TaskCardProps {
   canEdit: boolean;
 }
 
-export function TaskCard({ task, onMoveLeft, onMoveRight, canMoveLeft, canMoveRight, canEdit }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onMoveLeft,
+  onMoveRight,
+  canMoveLeft,
+  canMoveRight,
+  canEdit,
+}: TaskCardProps) {
   const epic = EPICS.find((e) => e.id === task.epicId);
   const isOverdue = new Date(task.dueDate) < new Date("2026-02-10");
+
+  // At Risk logic: time logged > 1.2x estimate
+  const totalMinutesLogged = task.timeEntries.reduce(
+    (acc, entry) => acc + entry.minutes,
+    0,
+  );
+  const totalHoursLogged = totalMinutesLogged / 60;
+  const estimateHours = task.estimate || 0;
+  const isOverBudget =
+    estimateHours > 0 && totalHoursLogged > estimateHours * 1.2;
 
   return (
     <div className="group rounded-lg border border-border bg-white p-3 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
@@ -31,6 +48,11 @@ export function TaskCard({ task, onMoveLeft, onMoveRight, canMoveLeft, canMoveRi
       <Link href={`/task/${task.id}`}>
         <p className="text-sm font-medium text-foreground mb-2 leading-snug group-hover:text-indigo-700 transition-colors cursor-pointer">
           {task.title}
+          {isOverBudget && (
+            <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+              At Risk
+            </span>
+          )}
         </p>
       </Link>
 
@@ -86,7 +108,9 @@ export function TaskCard({ task, onMoveLeft, onMoveRight, canMoveLeft, canMoveRi
         </div>
       ) : (
         <div className="mt-3 pt-2 border-t border-border">
-          <p className="text-center text-xs text-muted-foreground/60">Read-only</p>
+          <p className="text-center text-xs text-muted-foreground/60">
+            Read-only
+          </p>
         </div>
       )}
     </div>

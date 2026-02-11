@@ -1,7 +1,7 @@
-import { EpicStatus, ProjectStatus, TaskStatus } from "@/lib/types";
+import { EpicStatus, TaskStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type AnyStatus = TaskStatus | EpicStatus | ProjectStatus;
+type AnyStatus = TaskStatus | EpicStatus;
 
 const styles: Record<AnyStatus, string> = {
   "To Do": "bg-slate-100 text-slate-700",
@@ -9,7 +9,6 @@ const styles: Record<AnyStatus, string> = {
   Review: "bg-amber-100 text-amber-700",
   Done: "bg-green-100 text-green-700",
   "Not Started": "bg-slate-100 text-slate-500",
-  Active: "bg-blue-100 text-blue-700",
   "On Hold": "bg-orange-100 text-orange-700",
 };
 

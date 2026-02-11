@@ -1,7 +1,6 @@
 export type TaskStatus = "To Do" | "In Progress" | "Review" | "Done";
 export type Priority = "Low" | "Medium" | "High";
 export type EpicStatus = "Not Started" | "In Progress" | "Done" | "On Hold";
-export type ProjectStatus = "Not Started" | "Active" | "On Hold" | "Done";
 export type Role = "Admin" | "Manager" | "Member" | "Viewer";
 
 export interface User {
@@ -11,6 +10,7 @@ export interface User {
   initials: string;
   avatarColor: string;
   role: Role;
+  weeklyCapacity: number; // hours per week (default 40)
 }
 
 export interface Comment {
@@ -30,6 +30,15 @@ export interface Subtask {
   dueDate?: string;
 }
 
+export interface TimeEntry {
+  id: string;
+  taskId: string;
+  user: User;
+  date: string;
+  minutes: number;
+  note?: string;
+}
+
 export interface Task {
   id: string;
   epicId: string;
@@ -42,24 +51,16 @@ export interface Task {
   estimate?: number;
   subtasks: Subtask[];
   comments: Comment[];
+  timeEntries: TimeEntry[];
 }
 
 export interface Epic {
   id: string;
-  projectId: string;
   title: string;
   description: string;
   owner: User;
   status: EpicStatus;
   startDate?: string;
   endDate?: string;
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  owner: User;
-  status: ProjectStatus;
   memberIds: string[];
 }

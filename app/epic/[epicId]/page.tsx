@@ -4,7 +4,9 @@ import { EpicDocsTab } from "@/components/epic/EpicDocsTab";
 import { EpicHeader } from "@/components/epic/EpicHeader";
 import { EpicTasksTab } from "@/components/epic/EpicTasksTab";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
-import { EPICS, getProjectById, getTasksByEpic } from "@/lib/mock";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDataStore } from "@/contexts/DataStore";
+import { canViewEpic } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import { use, useState } from "react";
 
@@ -16,17 +18,22 @@ interface EpicPageProps {
 
 export default function EpicPage({ params }: EpicPageProps) {
   const { epicId } = use(params);
-  const epic = EPICS.find((e) => e.id === epicId);
+  const { epics, tasks } = useDataStore();
+  const { currentUser } = useAuth();
+
+  const epic = epics.find((e) => e.id === epicId);
   if (!epic) notFound();
 
-  const project = getProjectById(epic.projectId);
-  if (!project) notFound();
+  // Authorization check: ensure user can view this epic
+  if (!canViewEpic(currentUser, epic.id)) {
+    notFound(); // Return 404 for unauthorized access (security best practice)
+  }
 
-  const tasks = getTasksByEpic(epic.id);
+  const epicTasks = tasks.filter((t) => t.epicId === epicId);
   const [activeTab, setActiveTab] = useState<Tab>("tasks");
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: "tasks", label: "Tasks", count: tasks.length },
+    { id: "tasks", label: "Tasks", count: epicTasks.length },
     { id: "docs", label: "Docs" },
   ];
 
@@ -37,7 +44,6 @@ export default function EpicPage({ params }: EpicPageProps) {
         <Breadcrumbs
           items={[
             { label: "Dashboard", href: "/dashboard" },
-            { label: project.name, href: `/projects/${project.id}` },
             { label: epic.title },
           ]}
         />
@@ -72,7 +78,7 @@ export default function EpicPage({ params }: EpicPageProps) {
 
         {/* Tab content */}
         {activeTab === "tasks" && (
-          <EpicTasksTab tasks={tasks} epicId={epic.id} />
+          <EpicTasksTab tasks={epicTasks} epicId={epic.id} />
         )}
         {activeTab === "docs" && <EpicDocsTab />}
       </div>

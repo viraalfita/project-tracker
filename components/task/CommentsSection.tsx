@@ -1,32 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import { Comment } from "@/lib/types";
 import { AvatarChip } from "@/components/shared/AvatarChip";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { canWrite } from "@/lib/permissions";
-import { Send } from "lucide-react";
+import { useDataStore } from "@/contexts/DataStore";
+import { useToast } from "@/contexts/ToastContext";
+import { canComment, canDelete } from "@/lib/permissions";
+import { Comment } from "@/lib/types";
+import { Send, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 interface CommentsSectionProps {
-  initialComments: Comment[];
+  taskId: string;
+  comments: Comment[];
+  epicId?: string;
 }
 
-export function CommentsSection({ initialComments }: CommentsSectionProps) {
-  const [comments, setComments] = useState<Comment[]>(initialComments);
-  const [draft, setDraft] = useState("");
+export function CommentsSection({
+  taskId,
+  comments,
+  epicId,
+}: CommentsSectionProps) {
+  const { addComment, deleteComment } = useDataStore();
+  const { toast } = useToast();
   const { currentUser } = useAuth();
-  const editable = canWrite(currentUser);
+
+  const [draft, setDraft] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Comment | null>(null);
+
+  const canPost = canComment(currentUser, epicId);
 
   function handlePost() {
     if (!draft.trim() || !currentUser) return;
-    const newComment: Comment = {
-      id: `c-${Date.now()}`,
-      taskId: "",
-      author: currentUser,
-      text: draft.trim(),
-      createdAt: "Just now",
-    };
-    setComments((prev) => [...prev, newComment]);
+    addComment(taskId, draft.trim(), currentUser);
+    toast("Comment posted.");
     setDraft("");
   }
 
@@ -36,33 +43,67 @@ export function CommentsSection({ initialComments }: CommentsSectionProps) {
     }
   }
 
+  function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    deleteComment(taskId, deleteTarget.id);
+    toast("Comment deleted.", "info");
+    setDeleteTarget(null);
+  }
+
+  function canDeleteComment(comment: Comment): boolean {
+    // Admin can delete any; Member can delete their own in their epic
+    return canDelete(currentUser, epicId, comment.author.id);
+  }
+
   return (
     <div>
       <h3 className="text-sm font-semibold text-foreground mb-3">
-        Comments <span className="text-muted-foreground font-normal">({comments.length})</span>
+        Comments{" "}
+        <span className="text-muted-foreground font-normal">
+          ({comments.length})
+        </span>
       </h3>
 
       {/* Comment list */}
       <div className="space-y-4 mb-4">
         {comments.length === 0 && (
-          <p className="text-sm text-muted-foreground">No comments yet. Be the first.</p>
+          <p className="text-sm text-muted-foreground">
+            No comments yet. Be the first.
+          </p>
         )}
         {comments.map((comment) => (
-          <div key={comment.id} className="flex gap-3">
+          <div key={comment.id} className="flex gap-3 group/comment">
             <AvatarChip user={comment.author} size="sm" className="mt-0.5" />
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-sm font-medium text-foreground">{comment.author.name}</span>
-                <span className="text-xs text-muted-foreground">{comment.createdAt}</span>
+                <span className="text-sm font-medium text-foreground">
+                  {comment.author.name}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {comment.createdAt}
+                </span>
+                {/* Delete icon — visible on hover for those who can delete */}
+                {canDeleteComment(comment) && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(comment)}
+                    className="ml-1 hidden group-hover/comment:inline-flex items-center justify-center rounded p-0.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                    aria-label="Delete comment"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-              <p className="text-sm text-foreground leading-relaxed">{comment.text}</p>
+              <p className="text-sm text-foreground leading-relaxed">
+                {comment.text}
+              </p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Input — hidden for read-only roles */}
-      {editable && currentUser ? (
+      {/* Input — only shown if user can post */}
+      {canPost && currentUser && (
         <div className="flex gap-3">
           <AvatarChip user={currentUser} size="sm" className="mt-1.5" />
           <div className="flex-1">
@@ -76,6 +117,7 @@ export function CommentsSection({ initialComments }: CommentsSectionProps) {
             />
             <div className="flex justify-end mt-1.5">
               <button
+                type="button"
                 onClick={handlePost}
                 disabled={!draft.trim()}
                 className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -86,11 +128,15 @@ export function CommentsSection({ initialComments }: CommentsSectionProps) {
             </div>
           </div>
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground italic">
-          Comments are read-only for your role.
-        </p>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+        title="Delete comment?"
+        description="This comment will be permanently removed."
+      />
     </div>
   );
 }
