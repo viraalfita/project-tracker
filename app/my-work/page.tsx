@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDataStore } from "@/contexts/DataStore";
 import { TaskStatus } from "@/lib/types";
 import { CheckSquare, Filter } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 
 const ORDERED_STATUSES: TaskStatus[] = [
   "In Progress",
@@ -28,7 +28,10 @@ export default function MyWorkPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const NOW = useMemo(() => new Date("2026-02-10"), []);
-  const WEEK_END = useMemo(() => new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000), [NOW]);
+  const WEEK_END = useMemo(
+    () => new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000),
+    [NOW],
+  );
 
   // Apply filters to tasks
   const myTasks = useMemo(() => {
@@ -44,7 +47,7 @@ export default function MyWorkPage() {
     if (dueDateFilter !== "all") {
       filtered = filtered.filter((t) => {
         const dueDate = new Date(t.dueDate);
-        
+
         switch (dueDateFilter) {
           case "overdue":
             return dueDate < NOW && t.status !== "Done";
@@ -86,15 +89,14 @@ export default function MyWorkPage() {
     });
 
   const totalItems = myTasks.length + mySubtaskEntries.length;
-  const activeFilterCount = 
-    (selectedStatuses.length > 0 ? 1 : 0) + 
-    (dueDateFilter !== "all" ? 1 : 0);
+  const activeFilterCount =
+    (selectedStatuses.length > 0 ? 1 : 0) + (dueDateFilter !== "all" ? 1 : 0);
 
   function toggleStatus(status: TaskStatus) {
     setSelectedStatuses((prev) =>
       prev.includes(status)
         ? prev.filter((s) => s !== status)
-        : [...prev, status]
+        : [...prev, status],
     );
   }
 
@@ -105,7 +107,7 @@ export default function MyWorkPage() {
 
   // Count tasks by due date for badge display
   const overdueCount = myTasks.filter(
-    (t) => new Date(t.dueDate) < NOW && t.status !== "Done"
+    (t) => new Date(t.dueDate) < NOW && t.status !== "Done",
   ).length;
 
   return (
@@ -209,7 +211,9 @@ export default function MyWorkPage() {
                 </label>
                 <select
                   value={dueDateFilter}
-                  onChange={(e) => setDueDateFilter(e.target.value as DueDateFilter)}
+                  onChange={(e) =>
+                    setDueDateFilter(e.target.value as DueDateFilter)
+                  }
                   className="w-full rounded-md border border-border bg-white px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="all">All dates</option>
@@ -220,10 +224,14 @@ export default function MyWorkPage() {
                 </select>
                 {dueDateFilter !== "all" && (
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    Filtering by: {dueDateFilter === "overdue" ? "Overdue tasks" : 
-                      dueDateFilter === "today" ? "Due today" :
-                      dueDateFilter === "thisWeek" ? "Due this week" :
-                      "Due later"}
+                    Filtering by:{" "}
+                    {dueDateFilter === "overdue"
+                      ? "Overdue tasks"
+                      : dueDateFilter === "today"
+                        ? "Due today"
+                        : dueDateFilter === "thisWeek"
+                          ? "Due this week"
+                          : "Due later"}
                   </p>
                 )}
               </div>

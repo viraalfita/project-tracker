@@ -11,9 +11,7 @@ interface QuickAddButtonProps {
   contextEpicId?: string;
 }
 
-export function QuickAddButton({
-  contextEpicId,
-}: QuickAddButtonProps) {
+export function QuickAddButton({ contextEpicId }: QuickAddButtonProps) {
   const { currentUser } = useAuth();
   const { createTask, epics } = useDataStore();
   const { toast } = useToast();

@@ -7,8 +7,8 @@ import { useDataStore } from "@/contexts/DataStore";
 import { EPICS, USERS } from "@/lib/mock";
 import { canMoveFromReview, canWrite } from "@/lib/permissions";
 import { Task, TaskStatus } from "@/lib/types";
-import { Filter, Kanban, X, ChevronDown, Users } from "lucide-react";
-import { useMemo, useState, useRef, useEffect } from "react";
+import { ChevronDown, Filter, Kanban, Users, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const COLUMNS: TaskStatus[] = ["To Do", "In Progress", "Review", "Done"];
 const ALL_STATUSES: TaskStatus[] = ["To Do", "In Progress", "Review", "Done"];
@@ -22,7 +22,9 @@ export default function BoardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "">("");
   const [epicFilter, setEpicFilter] = useState("");
-  const [dueDateFilter, setDueDateFilter] = useState<"overdue" | "this-week" | "">("");
+  const [dueDateFilter, setDueDateFilter] = useState<
+    "overdue" | "this-week" | ""
+  >("");
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const assigneeDropdownRef = useRef<HTMLDivElement>(null);
@@ -30,7 +32,10 @@ export default function BoardPage() {
   // Close assignee dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (assigneeDropdownRef.current && !assigneeDropdownRef.current.contains(event.target as Node)) {
+      if (
+        assigneeDropdownRef.current &&
+        !assigneeDropdownRef.current.contains(event.target as Node)
+      ) {
         setShowAssigneeDropdown(false);
       }
     }
@@ -90,10 +95,21 @@ export default function BoardPage() {
     }
 
     return result;
-  }, [tasks, searchQuery, statusFilter, epicFilter, dueDateFilter, assigneeFilter]);
+  }, [
+    tasks,
+    searchQuery,
+    statusFilter,
+    epicFilter,
+    dueDateFilter,
+    assigneeFilter,
+  ]);
 
   const hasFilters =
-    searchQuery.trim() || statusFilter || epicFilter || dueDateFilter || assigneeFilter.length > 0;
+    searchQuery.trim() ||
+    statusFilter ||
+    epicFilter ||
+    dueDateFilter ||
+    assigneeFilter.length > 0;
 
   function clearFilters() {
     setSearchQuery("");
@@ -237,12 +253,14 @@ export default function BoardPage() {
                         setAssigneeFilter((prev) =>
                           e.target.checked
                             ? [...prev, "unassigned"]
-                            : prev.filter((id) => id !== "unassigned")
+                            : prev.filter((id) => id !== "unassigned"),
                         );
                       }}
                       className="rounded border-border text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span className="text-sm text-muted-foreground italic">Unassigned</span>
+                    <span className="text-sm text-muted-foreground italic">
+                      Unassigned
+                    </span>
                   </label>
 
                   {/* User options */}
@@ -258,7 +276,7 @@ export default function BoardPage() {
                           setAssigneeFilter((prev) =>
                             e.target.checked
                               ? [...prev, user.id]
-                              : prev.filter((id) => id !== user.id)
+                              : prev.filter((id) => id !== user.id),
                           );
                         }}
                         className="rounded border-border text-indigo-600 focus:ring-indigo-500"
@@ -273,7 +291,9 @@ export default function BoardPage() {
                             .map((n) => n[0])
                             .join("")}
                         </div>
-                        <span className="text-sm text-foreground">{user.name}</span>
+                        <span className="text-sm text-foreground">
+                          {user.name}
+                        </span>
                       </div>
                     </label>
                   ))}

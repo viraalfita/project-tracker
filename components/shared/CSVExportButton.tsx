@@ -191,7 +191,11 @@ export function CSVExportButton({
                 </label>
                 <select
                   value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value as "all" | "week" | "month" | "lastMonth")}
+                  onChange={(e) =>
+                    setDateRange(
+                      e.target.value as "all" | "week" | "month" | "lastMonth",
+                    )
+                  }
                   className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="all">All Time</option>
