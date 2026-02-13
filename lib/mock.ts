@@ -82,6 +82,7 @@ export const EPICS: Epic[] = [
     description:
       "Complete UI/UX overhaul of the customer-facing e-commerce platform. Includes responsive design, checkout flow optimization, and accessibility improvements.",
     owner: USERS[0], // Admin
+    watchers: [USERS[1], USERS[2]], // Manager, Frontend Dev
     status: "In Progress",
     startDate: "2026-01-15",
     endDate: "2026-03-15",
@@ -93,6 +94,7 @@ export const EPICS: Epic[] = [
     description:
       "Integrate Stripe and PayPal payment processing with fraud detection, recurring billing support, and multi-currency handling.",
     owner: USERS[3], // Backend Dev
+    watchers: [USERS[0], USERS[1]], // Admin, Manager
     status: "In Progress",
     startDate: "2026-02-01",
     endDate: "2026-02-28",
@@ -104,6 +106,7 @@ export const EPICS: Epic[] = [
     description:
       "Native iOS and Android apps with core features: product browsing, wishlist, push notifications, and quick checkout.",
     owner: USERS[2], // Frontend Dev
+    watchers: [USERS[0], USERS[4]], // Admin, Designer
     status: "Not Started",
     startDate: "2026-03-01",
     endDate: "2026-04-30",
@@ -115,6 +118,7 @@ export const EPICS: Epic[] = [
     description:
       "Real-time analytics dashboard for sales, user behavior, conversion tracking, and automated reporting exports.",
     owner: USERS[0], // Admin
+    watchers: [USERS[1], USERS[3]], // Manager, Backend Dev
     status: "In Progress",
     startDate: "2026-01-20",
     endDate: "2026-02-25",
@@ -126,6 +130,7 @@ export const EPICS: Epic[] = [
     description:
       "Self-service portal with ticket system, live chat integration, knowledge base, and order tracking.",
     owner: USERS[4], // Designer
+    watchers: [USERS[0], USERS[2]], // Admin, Frontend Dev
     status: "On Hold",
     startDate: "2026-02-10",
     endDate: "2026-03-20",
@@ -137,6 +142,7 @@ export const EPICS: Epic[] = [
     description:
       "Migrate from AWS EC2 to Kubernetes cluster with auto-scaling, improved monitoring, and disaster recovery setup.",
     owner: USERS[3], // Backend Dev
+    watchers: [USERS[0]], // Admin only
     status: "Done",
     startDate: "2025-12-01",
     endDate: "2026-01-31",

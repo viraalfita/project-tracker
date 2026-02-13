@@ -95,6 +95,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         title: data.title,
         description: data.description,
         owner,
+        watchers: [],
         status: data.status,
         memberIds: data.memberIds || [data.ownerId],
       };
@@ -151,13 +152,17 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         epicId: data.epicId,
         title: data.title,
         description: data.description ?? "",
+        owner: assignee || undefined,
         assignee,
+        watchers: [],
         status: data.status ?? "To Do",
         priority: data.priority ?? "Medium",
         dueDate: "",
         subtasks: [],
         comments: [],
         timeEntries: [],
+        attachments: [],
+        externalLinks: [],
       };
       setTasks((prev) => [...prev, newTask]);
       return newTask;

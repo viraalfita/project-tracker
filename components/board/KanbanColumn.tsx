@@ -8,6 +8,8 @@ interface KanbanColumnProps {
   tasks: Task[];
   onMove: (taskId: string, direction: "left" | "right") => void;
   canEdit: boolean;
+  /** When false, left-move buttons are disabled for all tasks in this column */
+  allowMoveLeft?: boolean;
 }
 
 const columnColors: Record<TaskStatus, string> = {
@@ -24,7 +26,7 @@ const headerColors: Record<TaskStatus, string> = {
   "Done": "text-green-700",
 };
 
-export function KanbanColumn({ status, tasks, onMove, canEdit }: KanbanColumnProps) {
+export function KanbanColumn({ status, tasks, onMove, canEdit, allowMoveLeft = true }: KanbanColumnProps) {
   const colIdx = COLUMNS.indexOf(status);
 
   return (
@@ -48,7 +50,7 @@ export function KanbanColumn({ status, tasks, onMove, canEdit }: KanbanColumnPro
           <TaskCard
             key={task.id}
             task={task}
-            canMoveLeft={colIdx > 0}
+            canMoveLeft={allowMoveLeft && colIdx > 0}
             canMoveRight={colIdx < COLUMNS.length - 1}
             onMoveLeft={() => onMove(task.id, "left")}
             onMoveRight={() => onMove(task.id, "right")}

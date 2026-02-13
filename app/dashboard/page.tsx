@@ -3,213 +3,89 @@
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDataStore } from "@/contexts/DataStore";
-import { getEpicProgress, USERS } from "@/lib/mock";
-import { canViewEpic } from "@/lib/permissions";
-import { Epic } from "@/lib/types";
+import { EPICS, getEpicProgress, USERS } from "@/lib/mock";
+import {
+  calculateUtilization,
+  calculateUtilizationAggregates,
+} from "@/lib/utils";
 import {
   AlertCircle,
   AlertTriangle,
+  BarChart2,
   CheckCircle2,
   Clock,
+  Filter,
   LayoutDashboard,
   TrendingUp,
   Users as UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
-
-type RiskLevel = "Low" | "Medium" | "High";
-
-interface AttentionEpic {
-  epic: Epic;
-  progress: number;
-  overdueCount: number;
-  atRiskCount: number;
-  taskCount: number;
-  ownerUtilization: number;
-  riskLevel: RiskLevel;
-  attentionReasons: string[];
-}
+import { useMemo, useState } from "react";
 
 export default function DashboardPage() {
   const { epics, tasks } = useDataStore();
   const { currentUser } = useAuth();
 
-  const CAPACITY_HOURS = 40;
+  // ── Epic KPI filter ────────────────────────────────────────────────────────
+  const [kpiEpicFilter, setKpiEpicFilter] = useState("");
+
   const NOW = new Date("2026-02-10");
 
+  // Filtered tasks for KPI metrics
+  const kpiTasks = useMemo(
+    () =>
+      kpiEpicFilter ? tasks.filter((t) => t.epicId === kpiEpicFilter) : tasks,
+    [tasks, kpiEpicFilter],
+  );
+
   // Task metrics
-  const openTasks = tasks.filter((t) => t.status !== "Done").length;
-  const inProgressTasks = tasks.filter(
+  const openTasks = kpiTasks.filter((t) => t.status !== "Done").length;
+  const inProgressTasks = kpiTasks.filter(
     (t) => t.status === "In Progress",
   ).length;
-  const reviewTasks = tasks.filter((t) => t.status === "Review").length;
-  const doneTasks = tasks.filter((t) => t.status === "Done").length;
+  const reviewTasks = kpiTasks.filter((t) => t.status === "Review").length;
+  const doneTasks = kpiTasks.filter((t) => t.status === "Done").length;
 
   // Health indicators
-  const overdueCount = tasks.filter((t) => {
+  const overdueCount = kpiTasks.filter((t) => {
     const due = new Date(t.dueDate);
     return due < NOW && t.status !== "Done";
   }).length;
 
-  const atRiskCount = tasks.filter((t) => {
+  const atRiskCount = kpiTasks.filter((t) => {
     return t.status === "In Progress" && t.priority === "High";
   }).length;
 
-  // Utilization summary
-  const utilization = USERS.map((user) => {
-    const userTasks = tasks.filter(
-      (t) => t.assignee?.id === user.id && t.status !== "Done",
-    );
-    const totalEstimate = userTasks.reduce(
-      (sum, t) => sum + (t.estimate ?? 0),
-      0,
-    );
-    const pct = Math.round((totalEstimate / CAPACITY_HOURS) * 100);
-    return { user, totalEstimate, pct };
-  });
-
-  const overCapacity = utilization.filter((u) => u.pct > 100).length;
-  const avgUtilization = Math.round(
-    utilization.reduce((sum, u) => sum + u.pct, 0) / utilization.length,
+  // Utilization summary using shared calculation utility
+  // Uses all open tasks (no date range filter) for dashboard overview
+  const utilization = useMemo(
+    () =>
+      calculateUtilization(USERS, tasks, {
+        excludeCompleted: true,
+        dateRange: "none", // Dashboard shows all open work
+      }),
+    [tasks],
   );
 
-  // Epic health (for EWS section)
+  const { overCapacity, avgUtilization } = useMemo(
+    () => calculateUtilizationAggregates(utilization),
+    [utilization],
+  );
+
+  // Epic health (for EWS)
   const epicHealth = epics.map((epic) => {
-    const epicTasks = tasks.filter((t) => t.epicId === epic.id);
+    const epicTasks = kpiTasks.filter((t) => t.epicId === epic.id);
     const progress = getEpicProgress(epic.id);
     const overdue = epicTasks.filter((t) => {
       const due = new Date(t.dueDate);
       return due < NOW && t.status !== "Done";
     }).length;
-
     return { epic, progress, overdue, taskCount: epicTasks.length };
   });
 
   const epicsAtRisk = epicHealth.filter(
     (e) => e.overdue > 0 || (e.progress < 30 && e.taskCount > 0),
   );
-
-  // ── ATTENTION EPICS CALCULATION ────────────────────────────────────────────
-
-  /**
-   * Calculate which epics require attention based on:
-   * - Has overdue tasks
-   * - Has tasks marked "At Risk" (EWS triggered - High priority + In Progress)
-   * - Progress < 30% and status = In Progress
-   * - More than 30% of tasks are overdue
-   * - Owner has utilization > 120%
-   */
-  const attentionEpics: AttentionEpic[] = epics
-    .map((epic) => {
-      const epicTasks = tasks.filter((t) => t.epicId === epic.id);
-      const progress = getEpicProgress(epic.id);
-
-      // Count overdue tasks
-      const overdueCount = epicTasks.filter((t) => {
-        const due = new Date(t.dueDate);
-        return due < NOW && t.status !== "Done";
-      }).length;
-
-      // Count at-risk tasks (High priority + In Progress)
-      const atRiskCount = epicTasks.filter(
-        (t) => t.status === "In Progress" && t.priority === "High",
-      ).length;
-
-      // Owner utilization
-      const ownerUtil = utilization.find((u) => u.user.id === epic.owner.id);
-      const ownerUtilization = ownerUtil?.pct ?? 0;
-
-      // Calculate attention reasons
-      const reasons: string[] = [];
-      let requiresAttention = false;
-
-      if (overdueCount > 0) {
-        reasons.push(
-          `${overdueCount} overdue task${overdueCount > 1 ? "s" : ""}`,
-        );
-        requiresAttention = true;
-      }
-
-      if (atRiskCount > 0) {
-        reasons.push(
-          `${atRiskCount} at-risk task${atRiskCount > 1 ? "s" : ""}`,
-        );
-        requiresAttention = true;
-      }
-
-      if (progress < 30 && epic.status === "In Progress") {
-        reasons.push(`Low progress (${progress}%)`);
-        requiresAttention = true;
-      }
-
-      if (epicTasks.length > 0 && overdueCount / epicTasks.length > 0.3) {
-        reasons.push(`>30% tasks overdue`);
-        requiresAttention = true;
-      }
-
-      if (ownerUtilization > 120) {
-        reasons.push(`Owner over capacity (${ownerUtilization}%)`);
-        requiresAttention = true;
-      }
-
-      // Calculate risk level
-      let riskLevel: RiskLevel = "Low";
-      if (overdueCount >= 3 || atRiskCount >= 2) {
-        riskLevel = "High";
-      } else if (overdueCount >= 1 || atRiskCount >= 1) {
-        riskLevel = "Medium";
-      }
-
-      return {
-        epic,
-        progress,
-        overdueCount,
-        atRiskCount,
-        taskCount: epicTasks.length,
-        ownerUtilization,
-        riskLevel,
-        attentionReasons: reasons,
-        requiresAttention,
-      };
-    })
-    .filter((item) => item.requiresAttention)
-    .filter((item) => {
-      // Role-based visibility
-      if (!currentUser) return false;
-      return canViewEpic(currentUser, item.epic.id);
-    })
-    .sort((a, b) => {
-      // Sort by risk level (High > Medium > Low)
-      const riskOrder = { High: 3, Medium: 2, Low: 1 };
-      return riskOrder[b.riskLevel] - riskOrder[a.riskLevel];
-    }) as AttentionEpic[];
-
-  // Risk level styling
-  const getRiskBadge = (level: RiskLevel) => {
-    switch (level) {
-      case "High":
-        return {
-          bg: "bg-red-100",
-          text: "text-red-700",
-          border: "border-red-200",
-          icon: AlertCircle,
-        };
-      case "Medium":
-        return {
-          bg: "bg-amber-100",
-          text: "text-amber-700",
-          border: "border-amber-200",
-          icon: AlertTriangle,
-        };
-      case "Low":
-        return {
-          bg: "bg-blue-100",
-          text: "text-blue-700",
-          border: "border-blue-200",
-          icon: Clock,
-        };
-    }
-  };
 
   return (
     <div className="flex flex-col h-full">
@@ -219,7 +95,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex-1 px-6 py-6 space-y-6 overflow-auto">
-        {/* Conditional Dashboard Rendering Based on Role */}
         {currentUser &&
         (currentUser.role === "Admin" || currentUser.role === "Manager") ? (
           // ═══════════════════════════════════════════════════════════════════
@@ -234,17 +109,35 @@ export default function DashboardPage() {
                   Management Dashboard
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Monitoring & oversight — track health, utilization, and key
+                  Monitoring & oversight — track health, utilisation, and key
                   metrics
                 </p>
               </div>
             </div>
 
-            {/* KPI Cards */}
+            {/* ── KPI Cards with Epic filter ──────────────────────────────── */}
             <div>
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">
-                Key Metrics
-              </h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                  Key Metrics
+                </h2>
+                {/* Epic filter for KPI */}
+                <div className="flex items-center gap-2">
+                  <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                  <select
+                    value={kpiEpicFilter}
+                    onChange={(e) => setKpiEpicFilter(e.target.value)}
+                    className="rounded border border-border bg-white px-2.5 py-1 text-xs text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">All Epics</option>
+                    {EPICS.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div className="grid grid-cols-4 gap-4">
                 <div className="rounded-lg border border-border bg-white p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -281,15 +174,17 @@ export default function DashboardPage() {
                     {doneTasks}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {Math.round((doneTasks / (doneTasks + openTasks)) * 100)}%
-                    completion rate
+                    {doneTasks + openTasks > 0
+                      ? Math.round((doneTasks / (doneTasks + openTasks)) * 100)
+                      : 0}
+                    % completion rate
                   </p>
                 </div>
 
                 <div className="rounded-lg border border-border bg-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground">
-                      Avg Utilization
+                      Avg Utilisation
                     </p>
                     <UsersIcon className="h-4 w-4 text-indigo-500" />
                   </div>
@@ -303,218 +198,207 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Early Warning System - Admin & Manager Only */}
-            {currentUser &&
-              (currentUser.role === "Admin" ||
-                currentUser.role === "Manager") && (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-500" />
-                      Early Warning System
-                    </h2>
-                    <Link
-                      href="/epics"
-                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                    >
-                      View all epics →
-                    </Link>
-                  </div>
-                  <div className="rounded-lg border border-border bg-white p-5">
-                    {epicsAtRisk.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No epics at risk. All projects on track.
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {epicsAtRisk
-                          .slice(0, 5)
-                          .map(({ epic, progress, overdue }) => (
-                            <Link
-                              key={epic.id}
-                              href={`/epic/${epic.id}`}
-                              className="flex items-center justify-between p-3 rounded-md hover:bg-slate-50 transition-colors border border-transparent hover:border-orange-200"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">
-                                  {epic.title}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {overdue > 0 && `${overdue} overdue tasks`}
-                                  {overdue > 0 && progress < 30 && " · "}
-                                  {progress < 30 && `${progress}% progress`}
-                                </p>
-                              </div>
-                              <span className="ml-3 inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">
-                                <AlertTriangle className="h-3 w-3" />
-                                At Risk
-                              </span>
-                            </Link>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-            {/* Health Dashboard */}
+            {/* ── Early Warning System (compact, max 3 rows) ─────────────── */}
             <div>
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">
-                Health Dashboard
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg border border-border bg-white p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">
-                    Overdue Tasks
-                  </h3>
-                  {overdueCount === 0 ? (
-                    <div className="text-center py-6">
-                      <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        No overdue tasks
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-4xl font-bold text-red-600 mb-2">
-                        {overdueCount}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Require immediate attention
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-border bg-white p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">
-                    High Priority Tasks
-                  </h3>
-                  {atRiskCount === 0 ? (
-                    <div className="text-center py-6">
-                      <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        All under control
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-4xl font-bold text-amber-600 mb-2">
-                        {atRiskCount}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        In progress, high priority
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Epics Requiring Attention */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-500" />
-                  Epics Requiring Attention
+                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  Early Warning System
+                  {epicsAtRisk.length > 0 && (
+                    <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                      {epicsAtRisk.length} at risk
+                    </span>
+                  )}
                 </h2>
-                {attentionEpics.length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {attentionEpics.length} epic
-                    {attentionEpics.length > 1 ? "s" : ""} need intervention
-                  </span>
-                )}
+                <Link
+                  href="/epics"
+                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  View all →
+                </Link>
               </div>
+
               <div className="rounded-lg border border-border bg-white">
-                {attentionEpics.length === 0 ? (
-                  <div className="text-center py-8">
-                    <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-foreground mb-1">
-                      No Epics require attention at this time
+                {/* Health summary row */}
+                <div className="flex divide-x divide-border border-b border-border">
+                  <div className="flex-1 px-4 py-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Overdue
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      All epics are on track
+                    <p
+                      className={`text-2xl font-bold ${overdueCount > 0 ? "text-red-600" : "text-green-600"}`}
+                    >
+                      {overdueCount}
+                    </p>
+                  </div>
+                  <div className="flex-1 px-4 py-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      High Priority
+                    </p>
+                    <p
+                      className={`text-2xl font-bold ${atRiskCount > 0 ? "text-amber-600" : "text-green-600"}`}
+                    >
+                      {atRiskCount}
+                    </p>
+                  </div>
+                  <div className="flex-1 px-4 py-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Epics at Risk
+                    </p>
+                    <p
+                      className={`text-2xl font-bold ${epicsAtRisk.length > 0 ? "text-orange-600" : "text-green-600"}`}
+                    >
+                      {epicsAtRisk.length}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Epic list — max 3, scrollable */}
+                {epicsAtRisk.length === 0 ? (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <p className="text-sm text-muted-foreground">
+                      All projects on track
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
-                    {attentionEpics.map((item) => {
-                      const riskBadge = getRiskBadge(item.riskLevel);
-                      const RiskIcon = riskBadge.icon;
-
-                      return (
+                  <div className="max-h-[168px] overflow-y-auto divide-y divide-border">
+                    {epicsAtRisk
+                      .slice(0, 3)
+                      .map(({ epic, progress, overdue }) => (
                         <Link
-                          key={item.epic.id}
-                          href={`/epic/${item.epic.id}`}
-                          className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors"
+                          key={epic.id}
+                          href={`/epic/${epic.id}`}
+                          className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors"
                         >
-                          {/* Epic Info */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-sm font-semibold text-foreground truncate">
-                                {item.epic.title}
-                              </p>
-                              <span
-                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${riskBadge.bg} ${riskBadge.text} border ${riskBadge.border}`}
-                              >
-                                <RiskIcon className="h-3 w-3" />
-                                {item.riskLevel} Risk
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {item.attentionReasons.join(" · ")}
-                            </p>
-                          </div>
-
-                          {/* Owner */}
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white flex-shrink-0"
-                              style={{
-                                backgroundColor: item.epic.owner.avatarColor,
-                              }}
-                            >
-                              {item.epic.owner.initials}
-                            </span>
-                            <div className="min-w-0 hidden sm:block">
-                              <p className="text-xs font-medium text-foreground truncate">
-                                {item.epic.owner.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Owner
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Progress */}
-                          <div className="text-right min-w-[60px]">
-                            <p className="text-sm font-semibold text-foreground">
-                              {item.progress}%
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {epic.title}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Progress
+                              {overdue > 0 && `${overdue} overdue`}
+                              {overdue > 0 && progress < 30 && " · "}
+                              {progress < 30 && `${progress}% progress`}
                             </p>
                           </div>
-
-                          {/* Status Badge */}
-                          <div className="min-w-[90px]">
-                            <span
-                              className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${
-                                item.epic.status === "Done"
-                                  ? "bg-green-100 text-green-700"
-                                  : item.epic.status === "In Progress"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {item.epic.status}
-                            </span>
-                          </div>
+                          <span className="ml-3 inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 flex-shrink-0">
+                            <AlertTriangle className="h-3 w-3" />
+                            At Risk
+                          </span>
                         </Link>
-                      );
-                    })}
+                      ))}
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* ── Resource Utilisation Board ─────────────────────────────── */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4 text-indigo-500" />
+                  Resource Utilisation
+                </h2>
+                <Link
+                  href="/utilization"
+                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  Full report →
+                </Link>
+              </div>
+
+              <div className="rounded-lg border border-border bg-white overflow-hidden">
+                <div className="max-h-[320px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="border-b border-border bg-slate-50">
+                        <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Team Member
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
+                          Workload
+                        </th>
+                        <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Utilisation
+                        </th>
+                        <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {utilization.map(({ user, totalEstimate, pct }) => {
+                        const barColor =
+                          pct > 100
+                            ? "bg-red-500"
+                            : pct >= 80
+                              ? "bg-amber-400"
+                              : "bg-green-500";
+                        const statusLabel =
+                          pct > 100
+                            ? "Over capacity"
+                            : pct >= 80
+                              ? "Near capacity"
+                              : "Available";
+                        const statusColor =
+                          pct > 100
+                            ? "text-red-600 bg-red-50 border-red-200"
+                            : pct >= 80
+                              ? "text-amber-600 bg-amber-50 border-amber-200"
+                              : "text-green-600 bg-green-50 border-green-200";
+
+                        return (
+                          <tr
+                            key={user.id}
+                            className="hover:bg-slate-50 transition-colors"
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white flex-shrink-0"
+                                  style={{ backgroundColor: user.avatarColor }}
+                                >
+                                  {user.initials}
+                                </span>
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">
+                                    {user.name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {user.role} · {user.weeklyCapacity}h/wk
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 hidden sm:table-cell w-40">
+                              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${barColor} transition-all`}
+                                  style={{ width: `${Math.min(pct, 100)}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {totalEstimate}h assigned
+                              </p>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="text-sm font-semibold text-foreground">
+                                {pct}%
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span
+                                className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${statusColor}`}
+                              >
+                                {statusLabel}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
@@ -558,7 +442,7 @@ export default function DashboardPage() {
                   className="rounded-lg border border-border bg-white p-4 hover:shadow-sm hover:border-indigo-300 transition-all"
                 >
                   <p className="text-sm font-medium text-foreground">
-                    Utilization
+                    Utilisation
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Team capacity
@@ -591,7 +475,6 @@ export default function DashboardPage() {
                 My Task Progress
               </h2>
               <div className="grid grid-cols-4 gap-4">
-                {/* Total Assigned */}
                 <div className="rounded-lg border border-border bg-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground">
@@ -610,7 +493,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {/* In Progress */}
                 <div className="rounded-lg border border-border bg-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground">In Progress</p>
@@ -630,7 +512,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {/* Overdue */}
                 <div className="rounded-lg border border-border bg-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground">Overdue</p>
@@ -653,7 +534,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {/* At Risk */}
                 <div className="rounded-lg border border-border bg-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground">At Risk</p>
@@ -705,7 +585,6 @@ export default function DashboardPage() {
 
                   return (
                     <>
-                      {/* Progress Bar */}
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs text-muted-foreground">
@@ -723,7 +602,6 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      {/* Status Breakdown */}
                       <div className="grid grid-cols-4 gap-3">
                         <div className="text-center p-3 rounded-lg bg-slate-50">
                           <p className="text-2xl font-bold text-slate-600">

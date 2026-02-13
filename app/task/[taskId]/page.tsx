@@ -5,7 +5,9 @@ import { AvatarChip, UnassignedChip } from "@/components/shared/AvatarChip";
 import { PriorityBadge } from "@/components/shared/PriorityBadge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { UserSelect } from "@/components/shared/UserSelect";
+import { AttachmentsSection } from "@/components/task/AttachmentsSection";
 import { CommentsSection } from "@/components/task/CommentsSection";
+import { ExternalLinksSection } from "@/components/task/ExternalLinksSection";
 import { LogTimeDialog } from "@/components/task/LogTimeDialog";
 import { SubtaskList } from "@/components/task/SubtaskList";
 import { useAuth } from "@/contexts/AuthContext";
@@ -362,6 +364,24 @@ export default function TaskPage({ params }: TaskPageProps) {
               taskId={task.id}
               comments={task.comments}
               epicId={epic?.id}
+            />
+          </div>
+
+          {/* Attachments */}
+          <div className="rounded-lg border border-border bg-white p-6">
+            <AttachmentsSection
+              taskId={task.id}
+              attachments={task.attachments}
+              canEdit={canEditStatus}
+            />
+          </div>
+
+          {/* External Links */}
+          <div className="rounded-lg border border-border bg-white p-6">
+            <ExternalLinksSection
+              taskId={task.id}
+              links={task.externalLinks}
+              canEdit={canEditStatus}
             />
           </div>
         </div>

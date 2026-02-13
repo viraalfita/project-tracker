@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { QuickAddButton } from "@/components/shared/QuickAddButton";
+import { useAuth } from "@/contexts/AuthContext";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth();
@@ -31,6 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">{children}</main>
+      <QuickAddButton />
     </div>
   );
 }

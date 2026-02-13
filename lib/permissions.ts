@@ -156,6 +156,23 @@ export function getAssignableUsers(
 }
 
 /**
+ * Returns true if the user can move a task from "Review" status to "Done".
+ * Managers can approve completed reviews and mark tasks as Done.
+ * - Admin: YES
+ * - Manager: YES (can approve Review → Done workflow)
+ * - Member: YES (in assigned epics)
+ * - Viewer: NO
+ */
+export function canMoveFromReview(user: User | null): boolean {
+  if (!user) return false;
+  return (
+    user.role === "Admin" ||
+    user.role === "Manager" ||
+    user.role === "Member"
+  );
+}
+
+/**
  * Legacy helper - use more specific helpers instead.
  * @deprecated Use canCreate, canEdit, canUpdateStatus, etc. instead
  */
